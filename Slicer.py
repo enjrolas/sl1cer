@@ -145,6 +145,7 @@ class Slicer:
 
         self.bottom=self.vertices[j].z
         self.top=self.vertices[self.triangles[-1].vertices[0]].z
+
         
         print "bottom:  %f" % self.bottom
         print "top:  %f" % self.top
@@ -156,6 +157,9 @@ class Slicer:
             vertex.z+=(zBound-(self.top-self.bottom))/2
 
  
+        print self.vertices[j].z
+        print self.vertices[self.triangles[-1].vertices[0]].z
+
         #and now we're ready to slice, from bottom to top.
 
 

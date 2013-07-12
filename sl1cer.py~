@@ -2,6 +2,8 @@ from Slicer import *
 
 slicer=Slicer()
 
+#slicer.load("guy.ply")
+#slicer.load("nick.ply")
 slicer.load("shawn-fraye.ply")
 #slicer.load("alex-hornstein.ply")
 #slicer.load("sphere.ply")
