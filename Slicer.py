@@ -66,7 +66,9 @@ class Slicer:
                             self.vertices.append(Vertex(numbers[0],numbers[1],numbers[2],128, 128, 128))
                         if len(numbers)==9:  #some jackass put normal data in here
                             self.vertices.append(Vertex(numbers[0],numbers[1],numbers[2],numbers[6], numbers[7], numbers[8]))
-                        print "%f %f %f" % (numbers[0], numbers[1], numbers[2])
+                        if len(numbers)==8:  #some jackass put normal data in here
+                            self.vertices.append(Vertex(numbers[0],numbers[1],numbers[2],numbers[3], numbers[4], numbers[5]))
+                        #print "%f %f %f" % (numbers[0], numbers[1], numbers[2])
                     elif(element.name=="face"):  # the number format is x y z r g b
                         numbers=[]
                         for part in parts:
@@ -92,9 +94,12 @@ class Slicer:
 
 
 
-    def scale(self, bound):
+    def scale(self, xBound, yBound, zBound):
         min=Vertex(1000000,1000000,1000000)
         max=Vertex(-1000000,-1000000,-1000000)
+        i=0
+        j=0
+        k=0
         for vertex in self.vertices:
             if vertex.x > max.x:
                 max.x=vertex.x
@@ -102,40 +107,55 @@ class Slicer:
                 max.y=vertex.y
             if vertex.z > max.z:
                 max.z=vertex.z
+                k=i
 
             if vertex.x < min.x:
                 min.x=vertex.x
             if vertex.y < min.y:
                 min.y=vertex.y
             if vertex.z < min.z:
+                j=i
                 min.z=vertex.z
+            i+=1
                 
+        print "lowest vertex:"
         print min
+        print "highest vertex:"
         print max
-        bounds=[max.x-min.x, max.y-min.y, max.z-min.z]
-        bounds=sorted(bounds, reverse=True)
-        print bounds
-        scale=bound/bounds[0]
+
+        bounds=[xBound/(max.x-min.x), yBound/(max.y-min.y), zBound/(max.z-min.z)]
+        sortedBounds=sorted(bounds)  # sort the scale factors for the bounding box, with the smallest scale factor first
+        print sortedBounds
+        scale=sortedBounds[0]
         print "scaling factor: %f" % scale
+        print "model dimensions are %f x %f x %f" % (scale * (max.x-min.x), scale* (max.y-min.y), scale * (max.z-min.z))
         #scale all vertices so that the largest dimension fits in the bounding box
         for i in range(len(self.vertices)):
             self.vertices[i].x=self.vertices[i].x*scale
             self.vertices[i].y=self.vertices[i].y*scale
             self.vertices[i].z=self.vertices[i].z*scale
-            print self.vertices[i]
+           # print self.vertices[i]
 
-        #now shift the model up, so that the bottom is at the 0 and it's going up from there
-        self.bottom=self.vertices[self.triangles[0].vertices[2]].z
+        #sort triangles in order of increasing largest Z value
+        self.triangles=sorted(self.triangles, key=lambda triangle: self.vertices[triangle.vertices[0]].z)
+
+        self.xBound=xBound
+        self.yBound=yBound
+        self.zBound=zBound
+
+        self.bottom=self.vertices[j].z
+        self.top=self.vertices[self.triangles[-1].vertices[0]].z
+        
+        print "bottom:  %f" % self.bottom
+        print "top:  %f" % self.top
 
         for vertex in self.vertices:
+            vertex.x+=xBound/2
+            vertex.y+=yBound/2
             vertex.z-=self.bottom
-            vertex.x+=bound/2
-            vertex.y+=bound/2
+            vertex.z+=(zBound-(self.top-self.bottom))/2
 
-        self.bottom=0.0
-
-        self.top=self.vertices[self.triangles[-1].vertices[0]].z
-
+ 
         #and now we're ready to slice, from bottom to top.
 
 
@@ -144,46 +164,91 @@ class Slicer:
         print "bottom: %f" % self.bottom
         print "top:  %f" % self.top
 
-        z=self.bottom  # start at the bottommost vertex
+        z=0
         slice=0
-        while z<=self.top:
-            filename="%s-%d.svg" % (self.filename, slice)
-            dwg = svgwrite.Drawing(filename, profile='tiny')
-            for triangle in self.triangles:
-                if self.vertices[triangle.vertices[0]].z< z:  #if we've moved above the triangle, take it off the list!
-                    self.triangles.remove(triangle)
-                elif self.vertices[triangle.vertices[1]].z < z or self.vertices[triangle.vertices[2]].z < z:  # see if one of the other two points is below the slicing plane, otherwise there's no intersection
-                    print "Z:  %f" %z
+        sheet=0
+        cornerMark=3 #3mm x 3mm
+        margin=10
+        padding=3
+        while z<=self.zBound:
+            print "cutting plane height:  %f" % z
+            if slice%6==0:
+                filename="%s-%d.svg" % (self.filename, sheet)
+                svg=open(filename,'w')
+                svg.write("<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n")
+                svg.write("<svg width=\"210mm\" height=\"297mm\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n")
+            xOffset=margin+((self.xBound+padding)*(slice%3))
+            yOffset=margin+(self.yBound+padding)*int((slice%6)/3)
 
+            # draw the corner boxes
+#            svg.write("<rect x=\"%fmm\" y=\"%fmm\" width=\"%fmm\" height=\"%fmm\" stroke-width=\"1\" stroke=\"rgb(0,0,0)\" fill=\"rgb(255, 255, 255)\"/>" % (xOffset, yOffset, self.xBound, self.yBound))
+            svg.write("<rect x=\"%fmm\" y=\"%fmm\" width=\"%fmm\" height=\"%fmm\" stroke-width=\"1\" stroke=\"rgb(0,0,0)\" fill=\"rgb(255, 0, 0)\"/>" % (xOffset, yOffset, cornerMark, cornerMark))
+            svg.write("<rect x=\"%fmm\" y=\"%fmm\" width=\"%fmm\" height=\"%fmm\" stroke-width=\"1\" stroke=\"rgb(0,0,0)\" fill=\"rgb(255, 0, 0)\"/>" % (xOffset+self.xBound-cornerMark, yOffset, cornerMark, cornerMark))
+            svg.write("<rect x=\"%fmm\" y=\"%fmm\" width=\"%fmm\" height=\"%fmm\" stroke-width=\"1\" stroke=\"rgb(0,0,0)\" fill=\"rgb(255, 0, 0)\"/>" % (xOffset, yOffset+self.yBound-cornerMark, cornerMark, cornerMark))
+            svg.write("<rect x=\"%fmm\" y=\"%fmm\" width=\"%fmm\" height=\"%fmm\" stroke-width=\"1\" stroke=\"rgb(0,0,0)\" fill=\"rgb(255, 0, 0)\"/>" % (xOffset+self.xBound-cornerMark, yOffset+self.yBound-cornerMark, cornerMark, cornerMark))
+
+            #draw the slice number
+            svg.write("<text x=\"%dmm\" y=\"%dmm\" font-family=\"Verdana\" font-size=\"2mm\" fill=\"black\" >\n"% (xOffset+5, yOffset+2))
+            svg.write("slice %d / %d " % (slice+1, self.zBound/thickness))
+            svg.write("</text>\n")
+            lineCount=0
+            triangleCount=0
+            intersectionCount=0
+            for triangle in self.triangles:
+                triangleCount+=1
+                if self.vertices[triangle.vertices[0]].z< z:  #if we've moved above the triangle, take it off the list!
+                    print "slice %d, checked %d out of %d triangles" % (slice, triangleCount, len(self.triangles))
+#                    self.triangles.remove(triangle)
+                    #print "removing a triangle.  
+                elif self.vertices[triangle.vertices[1]].z < z or self.vertices[triangle.vertices[2]].z < z:  # see if one of the other two points is below the slicing plane, otherwise there's no intersection
+                    print "%d intersections, checked %d out of %d triangles" % (intersectionCount, triangleCount, len(self.triangles))
+                    for vertex in triangle.vertices:
+                        print self.vertices[vertex]
                     if self.vertices[triangle.vertices[1]].z<z:
                         planePoint1=self.intersectLineWithPlane(z, self.vertices[triangle.vertices[0]], self.vertices[triangle.vertices[1]])
+                        planePoint1.r=(self.vertices[triangle.vertices[0]].r+self.vertices[triangle.vertices[1]].r)/2
+                        planePoint1.g=(self.vertices[triangle.vertices[0]].g+self.vertices[triangle.vertices[1]].g)/2
+                        planePoint1.b=(self.vertices[triangle.vertices[0]].b+self.vertices[triangle.vertices[1]].b)/2
                     else:
-                        point1=True #point1 is above the slicing plane, as well, so both points 0 and 1 are above, and point 2 is below
                         planePoint1=self.intersectLineWithPlane(z, self.vertices[triangle.vertices[1]], self.vertices[triangle.vertices[2]])
+                        planePoint1.r=(self.vertices[triangle.vertices[2]].r+self.vertices[triangle.vertices[1]].r)/2
+                        planePoint1.g=(self.vertices[triangle.vertices[2]].g+self.vertices[triangle.vertices[1]].g)/2
+                        planePoint1.b=(self.vertices[triangle.vertices[2]].b+self.vertices[triangle.vertices[1]].b)/2
+                    
                     if self.vertices[triangle.vertices[2]].z<z:
                         planePoint2=self.intersectLineWithPlane(z, self.vertices[triangle.vertices[0]], self.vertices[triangle.vertices[2]])
+                        planePoint2.r=(self.vertices[triangle.vertices[0]].r+self.vertices[triangle.vertices[2]].r)/2
+                        planePoint2.g=(self.vertices[triangle.vertices[0]].g+self.vertices[triangle.vertices[2]].g)/2
+                        planePoint2.b=(self.vertices[triangle.vertices[0]].b+self.vertices[triangle.vertices[2]].b)/2
                     else:
-                        Point2=True
                         planePoint2=self.intersectLineWithPlane(z, self.vertices[triangle.vertices[1]], self.vertices[triangle.vertices[2]])
+                        planePoint2.r=(self.vertices[triangle.vertices[1]].r+self.vertices[triangle.vertices[2]].r)/2
+                        planePoint2.g=(self.vertices[triangle.vertices[1]].g+self.vertices[triangle.vertices[2]].g)/2
+                        planePoint2.b=(self.vertices[triangle.vertices[1]].b+self.vertices[triangle.vertices[2]].b)/2
+                    svg.write("<linearGradient id=\"gradient-%d\" x1=\"0%%\" y1=\"0%%\" x2=\"100%%\" y2=\"100%%\">" % lineCount )
+                    svg.write("<stop offset=\"0%%\" style=\"stop-color:rgb(%d, %d, %d);stop-opacity:1\" />" % (planePoint1.r, planePoint1.g, planePoint1.b))
+                    svg.write("<stop offset=\"100%%\" style=\"stop-color:rgb(%d, %d, %d);stop-opacity:1\" />"% (planePoint2.r, planePoint2.g, planePoint2.b))
+                    svg.write("</linearGradient>")
+#                    svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"url(#gradient-%d)\" style=\"stroke-linecap:round\"/>" % (planePoint1.x+xOffset, planePoint1.y+yOffset, planePoint2.x+xOffset, planePoint2.y+yOffset, lineCount))
+#                    svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"url(#gradient-%d)\" stroke-width=\"3\" style=\"stroke-linecap:round\"/>" % (planePoint1.x+xOffset, planePoint1.y+yOffset, planePoint2.x+xOffset, planePoint2.y+yOffset, lineCount))
+                    svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"url(#gradient-%d)\" stroke-width=\"1mm\"/>" % (planePoint1.x+xOffset, planePoint1.y+yOffset, planePoint2.x+xOffset, planePoint2.y+yOffset, lineCount))
+                    lineCount+=1
+            print "cutting plane height: %f / %f, %d triangles" % (z, self.zBound, lineCount)
 
-                    dwg.add(dwg.line((planePoint1.x, planePoint1.y), (planePoint2.x, planePoint2.y), stroke=svgwrite.rgb(self.vertices[triangle.vertices[0]].r, self.vertices[triangle.vertices[0]].g, self.vertices[triangle.vertices[0]].b,  '%')))
-            
-            dwg.save()
+            if slice%6==5:
+                svg.write("</svg>")
+                svg.close()
+                sheet+=1
             slice+=1
             z+=thickness
+        if slice%6!=5:
+            svg.write("</svg>")
+            svg.close()
+
 
     def intersectLineWithPlane(self, z, vertex1, vertex2):
         r1=(z-vertex1.z)/(vertex2.z-vertex1.z)
         intersection=Vertex(vertex1.x+r1*(vertex2.x-vertex1.x),vertex1.y+r1*(vertex2.y-vertex1.y),vertex1.z+r1*(vertex2.z-vertex1.z))
-        '''
-        print "vertex 1: %s" % vertex1
-        print "vertex 2: %s" % vertex2
-        print "z:  %f" % z
-        print vertex1.z
-        print vertex2.z
-        print "r:  %f" % r1
-        print "intersection: %s" %intersection
-        '''
         return intersection
 
 
