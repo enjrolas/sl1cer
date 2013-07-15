@@ -1,6 +1,5 @@
 from operator import itemgetter, attrgetter
-import svgwrite
-
+from Tkinter import *
 
 class Slicer:
     vertices=[]
@@ -11,6 +10,10 @@ class Slicer:
     def __init__(self):
         self.vertices=[]
         self.triangles=[]
+        master = Tk()
+        self.w = Canvas(master, width=1000, height=1000)
+        self.w.pack()
+
 
     # reads in data from .ply file, parses it into an array of vertices and triangles
     def load(self, filename):
@@ -240,6 +243,7 @@ class Slicer:
                         planePoint2.g=(self.vertices[triangle.vertices[1]].g+self.vertices[triangle.vertices[2]].g)/2
                         planePoint2.b=(self.vertices[triangle.vertices[1]].b+self.vertices[triangle.vertices[2]].b)/2
                     
+
                     svg.write("<linearGradient id=\"gradient-%d\" x1=\"0%%\" y1=\"0%%\" x2=\"100%%\" y2=\"100%%\">\n" % lineCount )
                     svg.write("<stop offset=\"0%%\" style=\"stop-color:rgb(%d, %d, %d);stop-opacity:0.5\" />\n" % (planePoint1.r, planePoint1.g, planePoint1.b))
                     svg.write("<stop offset=\"100%%\" style=\"stop-color:rgb(%d, %d, %d);stop-opacity:0.5\" />\n"% (planePoint2.r, planePoint2.g, planePoint2.b))
@@ -258,6 +262,8 @@ class Slicer:
             svg.write("</svg>")
             svg.close()
 
+    def colorString(self, r, g, b):
+        return "#%s%s%s" % (hex(r).split('x')[1],hex(g).split('x')[1],hex(b).split('x')[1])
 
     def intersectLineWithPlane(self, z, vertex1, vertex2):
         r1=(z-vertex1.z)/(vertex2.z-vertex1.z)

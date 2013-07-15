@@ -1,21 +1,11 @@
+#!/usr/bin/python
+
+import sys
 from Slicer import *
 
 slicer=Slicer()
 
-#slicer.load("shawn-fraye.ply")
-gslicer.load("alex-hornstein.ply")
-#slicer.load("sphere.ply")
+slicer.load(sys.argv[1])
 
-'''
-for element in slicer.elements:
-    print element
-for vertex in slicer.vertices:
-    print vertex
-for triangle in slicer.triangles:
-    print triangle
-
-for triangle in slicer.triangles:
-    print "%d %d %d %f %f %f" % (triangle.vertices[0],triangle.vertices[1],triangle.vertices[2],slicer.vertices[triangle.vertices[0]].z,slicer.vertices[triangle.vertices[1]].z,slicer.vertices[triangle.vertices[2]].z)
-'''
-slicer.scale(100.0)
-slicer.slice(1.0) #1mm slices
+slicer.scale(45, 45, 60.0)
+slicer.slice(2, rows=6, cols=4, margin=5, padding=0) #0.3mm slices, in a 4x4 grid

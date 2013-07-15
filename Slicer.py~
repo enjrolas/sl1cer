@@ -60,6 +60,8 @@ class Slicer:
                         numbers=[]
                         for part in parts:
                             numbers.append(float(part))
+                        print len(numbers)
+                        print numbers
                         if len(numbers)==6 or len(numbers)==7 or len(numbers)==8:
                             self.vertices.append(Vertex(numbers[0],numbers[1],numbers[2],numbers[3], numbers[4], numbers[5]))
                         if len(numbers)==3:  #there's only x y z data, no color data
