@@ -3,4 +3,8 @@
 *.pyc
 *.zip
 *.pdf
+#.wrl
+*.SLDPRT
+*.jpg
+*.png
 *.~
