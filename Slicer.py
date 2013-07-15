@@ -177,7 +177,7 @@ class Slicer:
 
         width=1000
         height=1000
-        weight=10
+        weight=50
         bounds=(self.xBound,self.yBound,self.zBound)
         bounds=sorted(bounds)
         scaleFactor=float(width)/bounds[0]
@@ -242,18 +242,32 @@ class Slicer:
                 image1.save(filename)
                 command="echo foo | arch -i386 openCV_blob_command_line.app/Contents/MacOS/JavaApplicationStub %s" % filename
                 os.system(command)
-                maskImage = Image.new("L", (width, height))
                 maskFilename="%s-mask.png" % filename.split('.')[0]
                 print maskFilename
-                maskImage.open(maskFilename)
-                colorImage = Image.new("RGB", (width, height), "#000000")
-                colorImage = ImageDraw.Draw(colorImage)
-                colorImage.strokeWeight(weight)
+                maskImage=Image.open(maskFilename)
+                maskImage=maskImage.convert("1")
+                maskImage.save(maskFilename)
+
+                colorIm = Image.new("RGB", (width, height), "#FFFFFF")
+                colorImage = ImageDraw.Draw(colorIm)
                 for segment in segments:
-                    colorImage.line([scaleFactor*planePoint1.x, scaleFactor*planePoint1.y, scaleFactor*planePoint2.x, scaleFactor*planePoint2.y], self.colorString(segment.start))
-                image1.paste(colorImage, mask=maskImage)
-                image1.save(filename)
+                    print segment
+                    print self.colorString(segment.start)
+                    colorImage.line([scaleFactor*segment.start.x, scaleFactor*segment.start.y, scaleFactor*segment.end.x, scaleFactor*segment.end.y], fill=self.colorString(segment.start), width=weight)
+
+                colorIm.save("%s-color.png" % filename.split('.')[0])
+                output = Image.new("RGB", (width, height), "#FFFFFF")
+                print "%d x %d %s" % (colorIm.size[0], colorIm.size[1], colorIm.mode)
+                print "%d x %d %s" % (maskImage.size[0], maskImage.size[1], maskImage.mode)
+                print "%d x %d %s" % (output.size[0], output.size[1], output.mode)
+                output.paste(colorIm, mask=maskImage)
+                output.save("%s-final.png" %filename.split('.')[0])
                 sheet+=1
+                del image1
+                del draw
+                del colorImage
+                del colorIm
+                del output
             slice+=1
             z+=thickness
             
@@ -267,7 +281,8 @@ class Slicer:
             colorImage = Image.new("RGB", (width, height), "#000000")
             colorImage = ImageDraw.Draw(colorImage)
             for segment in segments:
-                colorImage.line([scaleFactor*planePoint1.x, scaleFactor*planePoint1.y, scaleFactor*planePoint2.x, scaleFactor*planePoint2.y], self.colorString(segment.start))
+                print segment
+#                colorImage.line([scaleFactor*segment.start.x, scaleFactor*segment.start.y, scaleFactor*segment.end.x, scaleFactor*segment.end.y], self.colorString(segment.start))
             image1.paste(colorImage, mask=maskImage)
             image1.save(filename)
 
