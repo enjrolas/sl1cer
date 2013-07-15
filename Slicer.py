@@ -1,6 +1,6 @@
 from operator import itemgetter, attrgetter
-import svgwrite
-
+import Image, ImageDraw
+import os
 
 class Slicer:
     vertices=[]
@@ -157,7 +157,7 @@ class Slicer:
         for vertex in self.vertices:
             vertex.x+=xBound/2
             vertex.y+=yBound/2
-            vertex.z-=self.bottom
+           # vertex.z-=self.bottom
             vertex.z+=(zBound-(self.top-self.bottom))/2
 
  
@@ -168,9 +168,19 @@ class Slicer:
 
 
 
+    def colorString(self, point):
+        return "#%0.2X%0.2X%0.2X" % (point.r, point.g, point.b)
+
     def slice(self, thickness, rows, cols, margin=5, padding=1):
         print "bottom: %f" % self.bottom
         print "top:  %f" % self.top
+
+        width=1000
+        height=1000
+        weight=10
+        bounds=(self.xBound,self.yBound,self.zBound)
+        bounds=sorted(bounds)
+        scaleFactor=float(width)/bounds[0]
 
         z=0
         slice=0
@@ -179,35 +189,16 @@ class Slicer:
         while z<=self.zBound:
             print "cutting plane height:  %f" % z
             if slice%(rows*cols)==0:
-                filename="%s-%d.svg" % (self.filename, sheet)
-                svg=open(filename,'w')
-                svg.write("<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n")
-                svg.write("<svg width=\"210mm\" height=\"297mm\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n")
+                filename="%s-%0.3d.png" % (self.filename, sheet)
+                image1 = Image.new("RGB", (width, height), "#000000")
+                draw = ImageDraw.Draw(image1)
             xOffset=margin+((self.xBound+padding)*(slice%cols))
             yOffset=margin+(self.yBound+padding)*int((slice%(rows*cols))/cols)
 
-            
-            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset, yOffset, xOffset+cornerMark, yOffset))
-            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset, yOffset, xOffset, yOffset+cornerMark))
-
-            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset+self.xBound, yOffset, xOffset+self.xBound-cornerMark, yOffset))
-            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset+self.xBound, yOffset, xOffset+self.xBound, yOffset+cornerMark))
-
-            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset, yOffset+self.yBound, xOffset+cornerMark, yOffset+self.yBound))
-            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset, yOffset+self.yBound, xOffset, yOffset+self.yBound-cornerMark))
-
-            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset+self.xBound, yOffset+self.yBound, xOffset+self.yBound, yOffset+self.yBound-cornerMark))
-            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset+self.xBound, yOffset+self.yBound, xOffset+self.yBound-cornerMark, yOffset+self.yBound))
-
-
-            #draw the slice number
-            svg.write("<text x=\"%dmm\" y=\"%dmm\" font-family=\"Verdana\" font-size=\"2mm\" fill=\"black\"> \n" % (xOffset+5, yOffset+2))
-            svg.write("slice %d / %d " % (slice+1, self.zBound/thickness))
-            svg.write("</text>\n")
             lineCount=0
             triangleCount=0
             intersectionCount=0
-            sliceVertices=[]
+            segments=[]
             for triangle in self.triangles:
                 triangleCount+=1
                 if self.vertices[triangle.vertices[0]].z< z:  #if we've moved above the triangle, take it off the list!
@@ -240,24 +231,45 @@ class Slicer:
                         planePoint2.g=(self.vertices[triangle.vertices[1]].g+self.vertices[triangle.vertices[2]].g)/2
                         planePoint2.b=(self.vertices[triangle.vertices[1]].b+self.vertices[triangle.vertices[2]].b)/2
                     
-                    svg.write("<linearGradient id=\"gradient-%d\" x1=\"0%%\" y1=\"0%%\" x2=\"100%%\" y2=\"100%%\">\n" % lineCount )
-                    svg.write("<stop offset=\"0%%\" style=\"stop-color:rgb(%d, %d, %d);stop-opacity:0.5\" />\n" % (planePoint1.r, planePoint1.g, planePoint1.b))
-                    svg.write("<stop offset=\"100%%\" style=\"stop-color:rgb(%d, %d, %d);stop-opacity:0.5\" />\n"% (planePoint2.r, planePoint2.g, planePoint2.b))
-                    svg.write("</linearGradient>\n")
-                    svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"url(#gradient-%d)\" stroke-width=\"1mm\" style=\"stroke-linecap: round\"/>\n" % (planePoint1.x+xOffset, planePoint1.y+yOffset, planePoint2.x+xOffset, planePoint2.y+yOffset, lineCount))
+#                    draw.line([scaleFactor*planePoint1.x, scaleFactor*planePoint1.y, scaleFactor*planePoint2.x, scaleFactor*planePoint2.y], self.colorString(planePoint1))
+                    draw.line([scaleFactor*planePoint1.x, scaleFactor*planePoint1.y, scaleFactor*planePoint2.x, scaleFactor*planePoint2.y], "#FFFFFF")
+                    segments.append(Line(planePoint1, planePoint2))
+                    
                     lineCount+=1
             print "cutting plane height: %f / %f, %d triangles" % (z, self.zBound, lineCount)
 
             if slice%(rows*cols)==(rows*cols)-1:
-                svg.write("</svg>")
-                svg.close()
+                image1.save(filename)
+                command="echo foo | arch -i386 openCV_blob_command_line.app/Contents/MacOS/JavaApplicationStub %s" % filename
+                os.system(command)
+                maskImage = Image.new("L", (width, height))
+                maskFilename="%s-mask.png" % filename.split('.')[0]
+                print maskFilename
+                maskImage.open(maskFilename)
+                colorImage = Image.new("RGB", (width, height), "#000000")
+                colorImage = ImageDraw.Draw(colorImage)
+                colorImage.strokeWeight(weight)
+                for segment in segments:
+                    colorImage.line([scaleFactor*planePoint1.x, scaleFactor*planePoint1.y, scaleFactor*planePoint2.x, scaleFactor*planePoint2.y], self.colorString(segment.start))
+                image1.paste(colorImage, mask=maskImage)
+                image1.save(filename)
                 sheet+=1
             slice+=1
             z+=thickness
+            
         if slice%(rows*cols)!=(rows*cols)-1:
-            svg.write("</svg>")
-            svg.close()
-
+            image1.save(filename)
+            command="echo foo | arch -i386 openCV_blob_command_line.app/Contents/MacOS/JavaApplicationStub %s" % filename
+            os.system(command)
+            maskImage = Image.new("L", (width, height))
+            maskFilename="%s-mask.png" % filename.split('.')[0]
+            maskImage.open(maskFilename)
+            colorImage = Image.new("RGB", (width, height), "#000000")
+            colorImage = ImageDraw.Draw(colorImage)
+            for segment in segments:
+                colorImage.line([scaleFactor*planePoint1.x, scaleFactor*planePoint1.y, scaleFactor*planePoint2.x, scaleFactor*planePoint2.y], self.colorString(segment.start))
+            image1.paste(colorImage, mask=maskImage)
+            image1.save(filename)
 
     def intersectLineWithPlane(self, z, vertex1, vertex2):
         r1=(z-vertex1.z)/(vertex2.z-vertex1.z)
@@ -290,6 +302,15 @@ class Vertex:
 
     def color(self):
         return "rgb(%d, %d, %d)" % (self.r, self.g, self.b)
+
+
+class Line:
+    def __init__(self, _start, _end):
+        self.start=_start
+        self.end=_end    
+
+    def __str__(self):
+        return "line:  %s %s" % (self.start, self.end)
 
 
 class Triangle:

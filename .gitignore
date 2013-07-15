@@ -2,4 +2,10 @@
 *.svg
 *.pyc
 *.zip
+*.pdf
+*.wrl
+*.obj
+*.SLDPRT
+*.jpg
+*.png
 *.~
