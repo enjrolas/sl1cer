@@ -60,15 +60,15 @@ class Slicer:
                         numbers=[]
                         for part in parts:
                             numbers.append(float(part))
-                        if len(numbers)==6:
+                        print len(numbers)
+                        print numbers
+                        if len(numbers)==6 or len(numbers)==7 or len(numbers)==8:
                             self.vertices.append(Vertex(numbers[0],numbers[1],numbers[2],numbers[3], numbers[4], numbers[5]))
                         if len(numbers)==3:  #there's only x y z data, no color data
                             self.vertices.append(Vertex(numbers[0],numbers[1],numbers[2],128, 128, 128))
                         if len(numbers)==9:  #some jackass put normal data in here
                             self.vertices.append(Vertex(numbers[0],numbers[1],numbers[2],numbers[6], numbers[7], numbers[8]))
-                        if len(numbers)==8:  #some jackass put normal data in here
-                            self.vertices.append(Vertex(numbers[0],numbers[1],numbers[2],numbers[3], numbers[4], numbers[5]))
-                        #print "%f %f %f" % (numbers[0], numbers[1], numbers[2])
+                         #print "%f %f %f" % (numbers[0], numbers[1], numbers[2])
                     elif(element.name=="face"):  # the number format is x y z r g b
                         numbers=[]
                         for part in parts:
@@ -150,6 +150,10 @@ class Slicer:
         print "bottom:  %f" % self.bottom
         print "top:  %f" % self.top
 
+
+        adjustment=(zBound-(self.top-self.bottom))/2 - self.bottom
+        print "adjustment: %f" % adjustment
+
         for vertex in self.vertices:
             vertex.x+=xBound/2
             vertex.y+=yBound/2
@@ -164,7 +168,7 @@ class Slicer:
 
 
 
-    def slice(self, thickness):
+    def slice(self, thickness, rows, cols, margin=5, padding=1):
         print "bottom: %f" % self.bottom
         print "top:  %f" % self.top
 
@@ -172,32 +176,38 @@ class Slicer:
         slice=0
         sheet=0
         cornerMark=3 #3mm x 3mm
-        margin=10
-        padding=3
         while z<=self.zBound:
             print "cutting plane height:  %f" % z
-            if slice%6==0:
+            if slice%(rows*cols)==0:
                 filename="%s-%d.svg" % (self.filename, sheet)
                 svg=open(filename,'w')
                 svg.write("<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n")
                 svg.write("<svg width=\"210mm\" height=\"297mm\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n")
-            xOffset=margin+((self.xBound+padding)*(slice%3))
-            yOffset=margin+(self.yBound+padding)*int((slice%6)/3)
+            xOffset=margin+((self.xBound+padding)*(slice%cols))
+            yOffset=margin+(self.yBound+padding)*int((slice%(rows*cols))/cols)
 
-            # draw the corner boxes
-#            svg.write("<rect x=\"%fmm\" y=\"%fmm\" width=\"%fmm\" height=\"%fmm\" stroke-width=\"1\" stroke=\"rgb(0,0,0)\" fill=\"rgb(255, 255, 255)\"/>" % (xOffset, yOffset, self.xBound, self.yBound))
-            svg.write("<rect x=\"%fmm\" y=\"%fmm\" width=\"%fmm\" height=\"%fmm\" stroke-width=\"1\" stroke=\"rgb(0,0,0)\" fill=\"rgb(255, 0, 0)\"/>" % (xOffset, yOffset, cornerMark, cornerMark))
-            svg.write("<rect x=\"%fmm\" y=\"%fmm\" width=\"%fmm\" height=\"%fmm\" stroke-width=\"1\" stroke=\"rgb(0,0,0)\" fill=\"rgb(255, 0, 0)\"/>" % (xOffset+self.xBound-cornerMark, yOffset, cornerMark, cornerMark))
-            svg.write("<rect x=\"%fmm\" y=\"%fmm\" width=\"%fmm\" height=\"%fmm\" stroke-width=\"1\" stroke=\"rgb(0,0,0)\" fill=\"rgb(255, 0, 0)\"/>" % (xOffset, yOffset+self.yBound-cornerMark, cornerMark, cornerMark))
-            svg.write("<rect x=\"%fmm\" y=\"%fmm\" width=\"%fmm\" height=\"%fmm\" stroke-width=\"1\" stroke=\"rgb(0,0,0)\" fill=\"rgb(255, 0, 0)\"/>" % (xOffset+self.xBound-cornerMark, yOffset+self.yBound-cornerMark, cornerMark, cornerMark))
+            
+            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset, yOffset, xOffset+cornerMark, yOffset))
+            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset, yOffset, xOffset, yOffset+cornerMark))
+
+            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset+self.xBound, yOffset, xOffset+self.xBound-cornerMark, yOffset))
+            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset+self.xBound, yOffset, xOffset+self.xBound, yOffset+cornerMark))
+
+            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset, yOffset+self.yBound, xOffset+cornerMark, yOffset+self.yBound))
+            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset, yOffset+self.yBound, xOffset, yOffset+self.yBound-cornerMark))
+
+            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset+self.xBound, yOffset+self.yBound, xOffset+self.yBound, yOffset+self.yBound-cornerMark))
+            svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"black\" stroke-width=\".25mm\"/>\n" % (xOffset+self.xBound, yOffset+self.yBound, xOffset+self.yBound-cornerMark, yOffset+self.yBound))
+
 
             #draw the slice number
-            svg.write("<text x=\"%dmm\" y=\"%dmm\" font-family=\"Verdana\" font-size=\"2mm\" fill=\"black\" >\n"% (xOffset+5, yOffset+2))
+            svg.write("<text x=\"%dmm\" y=\"%dmm\" font-family=\"Verdana\" font-size=\"2mm\" fill=\"black\"> \n" % (xOffset+5, yOffset+2))
             svg.write("slice %d / %d " % (slice+1, self.zBound/thickness))
             svg.write("</text>\n")
             lineCount=0
             triangleCount=0
             intersectionCount=0
+            sliceVertices=[]
             for triangle in self.triangles:
                 triangleCount+=1
                 if self.vertices[triangle.vertices[0]].z< z:  #if we've moved above the triangle, take it off the list!
@@ -229,23 +239,22 @@ class Slicer:
                         planePoint2.r=(self.vertices[triangle.vertices[1]].r+self.vertices[triangle.vertices[2]].r)/2
                         planePoint2.g=(self.vertices[triangle.vertices[1]].g+self.vertices[triangle.vertices[2]].g)/2
                         planePoint2.b=(self.vertices[triangle.vertices[1]].b+self.vertices[triangle.vertices[2]].b)/2
-                    svg.write("<linearGradient id=\"gradient-%d\" x1=\"0%%\" y1=\"0%%\" x2=\"100%%\" y2=\"100%%\">" % lineCount )
-                    svg.write("<stop offset=\"0%%\" style=\"stop-color:rgb(%d, %d, %d);stop-opacity:1\" />" % (planePoint1.r, planePoint1.g, planePoint1.b))
-                    svg.write("<stop offset=\"100%%\" style=\"stop-color:rgb(%d, %d, %d);stop-opacity:1\" />"% (planePoint2.r, planePoint2.g, planePoint2.b))
-                    svg.write("</linearGradient>")
-#                    svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"url(#gradient-%d)\" style=\"stroke-linecap:round\"/>" % (planePoint1.x+xOffset, planePoint1.y+yOffset, planePoint2.x+xOffset, planePoint2.y+yOffset, lineCount))
-#                    svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"url(#gradient-%d)\" stroke-width=\"3\" style=\"stroke-linecap:round\"/>" % (planePoint1.x+xOffset, planePoint1.y+yOffset, planePoint2.x+xOffset, planePoint2.y+yOffset, lineCount))
-                    svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"url(#gradient-%d)\" stroke-width=\"1mm\"/>" % (planePoint1.x+xOffset, planePoint1.y+yOffset, planePoint2.x+xOffset, planePoint2.y+yOffset, lineCount))
+                    
+                    svg.write("<linearGradient id=\"gradient-%d\" x1=\"0%%\" y1=\"0%%\" x2=\"100%%\" y2=\"100%%\">\n" % lineCount )
+                    svg.write("<stop offset=\"0%%\" style=\"stop-color:rgb(%d, %d, %d);stop-opacity:0.5\" />\n" % (planePoint1.r, planePoint1.g, planePoint1.b))
+                    svg.write("<stop offset=\"100%%\" style=\"stop-color:rgb(%d, %d, %d);stop-opacity:0.5\" />\n"% (planePoint2.r, planePoint2.g, planePoint2.b))
+                    svg.write("</linearGradient>\n")
+                    svg.write("<line x1=\"%fmm\" y1=\"%fmm\" x2=\"%fmm\" y2=\"%fmm\" stroke=\"url(#gradient-%d)\" stroke-width=\"1mm\" style=\"stroke-linecap: round\"/>\n" % (planePoint1.x+xOffset, planePoint1.y+yOffset, planePoint2.x+xOffset, planePoint2.y+yOffset, lineCount))
                     lineCount+=1
             print "cutting plane height: %f / %f, %d triangles" % (z, self.zBound, lineCount)
 
-            if slice%6==5:
+            if slice%(rows*cols)==(rows*cols)-1:
                 svg.write("</svg>")
                 svg.close()
                 sheet+=1
             slice+=1
             z+=thickness
-        if slice%6!=5:
+        if slice%(rows*cols)!=(rows*cols)-1:
             svg.write("</svg>")
             svg.close()
 

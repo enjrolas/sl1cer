@@ -1,12 +1,11 @@
+#!/usr/bin/python
+
+import sys
 from Slicer import *
 
 slicer=Slicer()
 
-#slicer.load("guy.ply")
-#slicer.load("nick.ply")
-slicer.load("shawn-fraye.ply")
-#slicer.load("alex-hornstein.ply")
-#slicer.load("sphere.ply")
+slicer.load(sys.argv[1])
 
-slicer.scale(50, 50, 60.0)
-slicer.slice(.3) #1mm slices
+slicer.scale(45, 45, 60.0)
+slicer.slice(.3, rows=6, cols=4, margin=5, padding=0) #0.3mm slices, in a 4x4 grid
